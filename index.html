@@ -6,7 +6,6 @@
 <title>Workman — Nigeria's Trusted Artisan Marketplace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --primary: #F97316;
@@ -655,9 +654,6 @@
 </head>
 <body>
 
-  <!-- your website content here -->
-
-
 
 <!-- ══════════════ NAV ══════════════ -->
 <nav>
@@ -719,6 +715,7 @@
           <div style="margin-top:24px;">
             <button class="btn-primary" onclick="showPage('directory')">View All Artisans →</button>
           </div>
+          <div id="artisans-container"></div>
         </div>
         <div>
           <div class="section-title">Top Rated</div>
@@ -925,7 +922,7 @@
 
 <!-- ══════════════ FOOTER ══════════════ -->
 <footer>
-  <p>© 2025 <strong>Workman</strong> — Empowering Nigeria's Skilled Workforce · Nigeria's Trusted Artisan Marketplace</p>
+  <p>© 2026 <strong>Workman</strong> — Empowering Nigeria's Skilled Workforce · Nigeria's Trusted Artisan Marketplace</p>
 </footer>
 
 <script>
@@ -1119,7 +1116,7 @@ function artisanCardHTML(a) {
     <div class="artisan-card" onclick="viewProfile(${a.id})">
       <div class="card-top">
         <div class="card-avatar">
-          ${a.imageUrl ? `<img src="${a.imageUrl}" alt="${a.fullName}" onerror="this.style.display='none';this.parentNode.dataset.init='${initials}'">` : initials}
+          ${a.imageUrl ? `<img src="${a.imageUrl}" alt="${a.fullName}" onerror="this.style.display='none';this.parentNode.textContent='${initials}'">` : initials}
         </div>
         <div class="card-name-block">
           <div class="card-name">${a.businessName}</div>
@@ -1697,55 +1694,63 @@ document.getElementById('hire-modal').addEventListener('click', function(e) {
 });
 
 // ═══════════════════════════════════════════════════════════
-//  SUPABASE + INIT
+//  INIT
 // ═══════════════════════════════════════════════════════════
-const _sb = window.supabase.createClient(
-  "https://zlrtjwcdshkuupixkeel.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpscnRqd2Nkc2hrdXVwaXhrZWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMzEyOTQsImV4cCI6MjA5NjYwNzI5NH0.xWuHc7TMd276fT7D68di9Ub3jJR1a7Bx_GIKOm3Kt_o"
-);
-
-async function init() {
-  setupRegisterForm();
-  renderHome();
-  renderBookings();
-
-  const { data, error } = await _sb.from("artisans").select("*");
+async function loadArtisans() {
+  if (typeof supabaseClient === 'undefined') return; // guard: client not yet ready
+  const { data, error } = await supabaseClient
+    .from("artisans")
+    .select("*");
 
   if (error) {
-    console.error("[Workman] Supabase error:", error.message);
+    console.error("Error loading artisans:", error);
     return;
   }
 
-  if (data && data.length > 0) {
-    // Map Supabase rows to the shape the UI expects, then prepend to artisans array
-    const remoteArtisans = data.map((r, i) => ({
-      id:           10000 + i,
-      fullName:     r.full_name     || r.fullName     || r.name        || "Unnamed",
-      businessName: r.business_name || r.businessName || r.full_name   || r.name || "Unnamed",
-      phone:        r.phone         || "",
-      email:        r.email         || "",
-      category:     r.category      || r.profession   || "General",
-      state:        r.state         || "",
-      city:         r.city          || "",
-      experience:   r.experience    || "1–2 years",
-      about:        r.about         || r.bio          || "",
-      imageUrl:     r.image_url     || r.profile_image || r.imageUrl   || "",
-      verified:     r.verified      || false,
-      rating:       parseFloat(r.rating) || 0,
-      reviews:      parseInt(r.reviews  || r.review_count) || 0,
-      completedJobs:parseInt(r.completed_jobs || r.completedJobs) || 0,
-    }));
+  const box = document.getElementById("artisans-container");
+  box.innerHTML = "";
 
-    // Merge: remote first, then seed data
-    artisans = [...remoteArtisans, ...artisans];
-    idCounter = artisans.length + 1;
-    console.log(`[Workman] Loaded ${remoteArtisans.length} artisans from Supabase + ${artisans.length - remoteArtisans.length} seed records`);
-  } else {
-    console.info("[Workman] No remote artisans found — displaying seed data");
-  }
+  data.forEach(a => {
+    const card = document.createElement("div");
 
-  // Re-render with merged data
-  renderHome();
+    card.className = "artisan-card";
+
+    card.innerHTML = `
+      <img src="${a.profile_image || 'https://via.placeholder.com/150'}" />
+      <h3>${a.full_name || a.name || 'Unnamed'}</h3>
+      <p>${a.profession || 'No profession'}</p>
+      <p>${a.city || ''} ${a.state || ''}</p>
+      <p>⭐ ${a.rating || 0}</p>
+    `;
+
+    box.appendChild(card);
+  });
 }
 
-init();
+loadArtisans();
+</script>
+
+<!-- ══════════════ SUPABASE ══════════════
+     Replace the two values below with your actual Supabase project credentials.
+     Find them in: Supabase Dashboard → Project Settings → API
+     For Vercel deployment, set these as environment variables and inject them
+     at build time, or use a .env file locally (never commit real keys to git).
+════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ── Supabase client initialisation ──────────────────────────
+  // Replace with your real project URL and anon/public key.
+  // Example URL:  https://xyzcompany.supabase.co
+  // Example key:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+  const SUPABASE_URL      = "YOUR_SUPABASE_PROJECT_URL";   // ← replace
+  const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";      // ← replace
+
+  const { createClient } = supabase;
+  const supabaseClient   = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Kick off artisan load once the client is ready
+  if (typeof loadArtisans === 'function') loadArtisans();
+</script>
+
+</body>
+</html>
