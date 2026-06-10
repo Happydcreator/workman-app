@@ -6,6 +6,7 @@
 <title>Workman — Nigeria's Trusted Artisan Marketplace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --primary: #F97316;
@@ -35,6 +36,7 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
+
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
     color: var(--text);
@@ -653,6 +655,10 @@
 </head>
 <body>
 
+  <!-- your website content here -->
+
+
+
 <!-- ══════════════ NAV ══════════════ -->
 <nav>
   <div class="nav-brand" onclick="showPage('home')">
@@ -713,7 +719,6 @@
           <div style="margin-top:24px;">
             <button class="btn-primary" onclick="showPage('directory')">View All Artisans →</button>
           </div>
-          <div id="artisans-container"></div>
         </div>
         <div>
           <div class="section-title">Top Rated</div>
@@ -1692,37 +1697,55 @@ document.getElementById('hire-modal').addEventListener('click', function(e) {
 });
 
 // ═══════════════════════════════════════════════════════════
-//  INIT
+//  SUPABASE + INIT
 // ═══════════════════════════════════════════════════════════
-fetch("http://localhost:5000/artisans")
-  .then(res => res.json())
-  .then(data => {
-    console.log(data);
-  });
-  fetch("http://localhost:5000/artisans")
-  .then(res => res.json())
-  .then(data => {
+const _sb = window.supabase.createClient(
+  "https://zlrtjwcdshkuupixkeel.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpscnRqd2Nkc2hrdXVwaXhrZWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMzEyOTQsImV4cCI6MjA5NjYwNzI5NH0.xWuHc7TMd276fT7D68di9Ub3jJR1a7Bx_GIKOm3Kt_o"
+);
 
-    const box = document.getElementById("artisans-container");
+async function init() {
+  setupRegisterForm();
+  renderHome();
+  renderBookings();
 
-    box.innerHTML = "";
+  const { data, error } = await _sb.from("artisans").select("*");
 
-    data.forEach(a => {
-      box.innerHTML += `
-        <div>
-          <h3>${a.fullName}</h3>
-          <p>${a.businessName}</p>
-          <p>${a.category}</p>
-          <p>${a.city}, ${a.state}</p>
-          <p>⭐ ${a.rating}</p>
-        </div>
-      `;
-    });
+  if (error) {
+    console.error("[Workman] Supabase error:", error.message);
+    return;
+  }
 
-  });
+  if (data && data.length > 0) {
+    // Map Supabase rows to the shape the UI expects, then prepend to artisans array
+    const remoteArtisans = data.map((r, i) => ({
+      id:           10000 + i,
+      fullName:     r.full_name     || r.fullName     || r.name        || "Unnamed",
+      businessName: r.business_name || r.businessName || r.full_name   || r.name || "Unnamed",
+      phone:        r.phone         || "",
+      email:        r.email         || "",
+      category:     r.category      || r.profession   || "General",
+      state:        r.state         || "",
+      city:         r.city          || "",
+      experience:   r.experience    || "1–2 years",
+      about:        r.about         || r.bio          || "",
+      imageUrl:     r.image_url     || r.profile_image || r.imageUrl   || "",
+      verified:     r.verified      || false,
+      rating:       parseFloat(r.rating) || 0,
+      reviews:      parseInt(r.reviews  || r.review_count) || 0,
+      completedJobs:parseInt(r.completed_jobs || r.completedJobs) || 0,
+    }));
 
-setupRegisterForm();
-renderHome();
-</script>
-</body>
-</html>
+    // Merge: remote first, then seed data
+    artisans = [...remoteArtisans, ...artisans];
+    idCounter = artisans.length + 1;
+    console.log(`[Workman] Loaded ${remoteArtisans.length} artisans from Supabase + ${artisans.length - remoteArtisans.length} seed records`);
+  } else {
+    console.info("[Workman] No remote artisans found — displaying seed data");
+  }
+
+  // Re-render with merged data
+  renderHome();
+}
+
+init();
